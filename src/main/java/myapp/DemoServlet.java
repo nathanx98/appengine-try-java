@@ -16,48 +16,62 @@
 
 package myapp;
 
-import java.io.IOException;
-import javax.servlet.http.HttpServlet;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
 import com.google.cloud.spanner.DatabaseClient;
 import com.google.cloud.spanner.DatabaseId;
 import com.google.cloud.spanner.ResultSet;
 import com.google.cloud.spanner.Spanner;
 import com.google.cloud.spanner.SpannerOptions;
 import com.google.cloud.spanner.Statement;
+import java.io.IOException;
+import javax.servlet.http.HttpServlet;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
 
 
 public class DemoServlet extends HttpServlet {
   @Override
   public void doGet(HttpServletRequest req, HttpServletResponse resp)
       throws IOException {
-    
+   
+    String fullUri = req.getRequestURI();
+    String query = "SELECT ";
+   
+    if (fullUri.startswith("/products/id")) {
+      query += "* FROM table WHERE id=" + fullUri.substring(12);
+    }
+   
+    String results = spannerHelper(query);
+   
+    resp.setContentType("text/plain");
+    resp.getWriter().println("{ \"name\": \"" + results + "\" }"); // {"name": "0"}
+  }
+ 
+  private String spannerHelper(String query) {
     String instanceId = "project";
-    String databaseId = "os-product-db";
-    
-    
+    String databaseId = "os-products-db";
+   
     // Instantiates a client
     SpannerOptions options = SpannerOptions.newBuilder().build();
     Spanner spanner = options.getService();
+   
     String results = "\n";
+   
     try {
       // Creates a database client
       DatabaseClient dbClient =
           spanner.getDatabaseClient(DatabaseId.of(options.getProjectId(), instanceId, databaseId));
       // Queries the database
-      ResultSet resultSet = dbClient.singleUse().executeQuery(Statement.of("SELECT *"));
-
+      ResultSet resultSet = dbClient.singleUse().executeQuery(Statement.of(query));
+     
       // Prints the results
       while (resultSet.next()) {
-        results += resultSet.getLong(0) + "\n";
+        results += resultSet.getLong(0) + "\n"
       }
     } finally {
       // Closes the client which will free up the resources used
       spanner.close();
     }
-  
-    resp.setContentType("text/plain");
-    resp.getWriter().println("{ \"name\": \"" + results + "\" }");
+   
+    return results
   }
 }
